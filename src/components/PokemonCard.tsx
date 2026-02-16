@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+//import { useEffect, useState } from "react";
 
 interface Pokemon {
   name: string;

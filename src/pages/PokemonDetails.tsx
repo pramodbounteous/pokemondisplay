@@ -1,122 +1,142 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import axios from "axios";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 
-interface PokemonDetailsType {
-  name: string;
-  height: number;
-  weight: number;
-  sprites: {
-    front_default: string;
-  };
-  types: {
-    type: {
-      name: string;
-    };
-  }[];
-  abilities: {
-    ability: {
-      name: string;
-    };
-  }[];
+interface PokemonType {
+  type: { name: string };
 }
 
+interface PokemonStat {
+  base_stat: number;
+  stat: { name: string };
+}
+
+interface PokemonAbility {
+  ability: { name: string };
+}
+
+interface PokemonDetail {
+  id: number;
+  name: string;
+  sprites: { front_default: string; other?: { "official-artwork"?: { front_default: string } } };
+  types: PokemonType[];
+  stats: PokemonStat[];
+  abilities: PokemonAbility[];
+}
+
+const typeColors: Record<string, string> = {
+  normal: "bg-gray-400",
+  fire: "bg-red-500",
+  water: "bg-blue-500",
+  electric: "bg-yellow-400",
+  grass: "bg-green-500",
+  ice: "bg-cyan-200",
+  fighting: "bg-red-700",
+  poison: "bg-purple-500",
+  ground: "bg-yellow-600",
+  flying: "bg-indigo-300",
+  psychic: "bg-pink-500",
+  bug: "bg-green-600",
+  rock: "bg-gray-600",
+  ghost: "bg-indigo-700",
+  dark: "bg-gray-800",
+  dragon: "bg-purple-700",
+  steel: "bg-gray-500",
+  fairy: "bg-pink-300",
+};
+
+const fetchPokemonDetail = async (name: string): Promise<PokemonDetail> => {
+  const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+  if (!res.ok) throw new Error("Failed to fetch Pokémon details");
+  return res.json();
+};
+
 function PokemonDetails() {
-  const { name } = useParams();
-  const navigate = useNavigate();
+  const { name } = useParams<{ name: string }>();
 
-  const [pokemon, setPokemon] = useState<PokemonDetailsType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["pokemonDetail", name],
+    queryFn: () => fetchPokemonDetail(name!),
+    enabled: !!name,
+    staleTime: 1000 * 60 * 5,
+  });
 
-  useEffect(() => {
-    const fetchPokemonDetails = async () => {
-      try {
-        setLoading(true);
-        setError(false);
-
-        const response = await axios.get(
-          `https://pokeapi.co/api/v2/pokemon/${name}`
-        );
-
-        setPokemon(response.data);
-      } catch (err) {
-        console.error("Error fetching pokemon details:", err);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (name) {
-      fetchPokemonDetails();
-    }
-  }, [name]);
-
-  if (loading) {
-    return <div className="text-center mt-10">Loading details...</div>;
+  if (isLoading) {
+    return <div className="text-center mt-10 text-lg">Loading Pokémon...</div>;
   }
 
-  if (error || !pokemon) {
-    return (
-      <div className="text-center mt-10 text-red-500">
-        Failed to load Pokémon.
-      </div>
-    );
+  if (isError || !data) {
+    return <div className="text-center mt-10 text-lg text-red-500">Error loading Pokémon</div>;
   }
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
-      <Card className="w-96 p-6">
-        <CardContent className="flex flex-col items-center space-y-4">
-          <img
-            src={pokemon.sprites.front_default}
-            alt={pokemon.name}
-            className="w-32 h-32"
-          />
+    <div className="p-6 max-w-3xl mx-auto bg-white shadow-md rounded-lg">
+      {/* Back Link */}
+      <Link to="/" className="text-blue-500 hover:underline mb-4 inline-block">
+        ← Back to list
+      </Link>
 
-          <h1 className="text-2xl font-bold capitalize">
-            {pokemon.name}
-          </h1>
+      {/* Name & Image */}
+      <div className="text-center mb-6">
+        <h1 className="text-4xl font-bold capitalize mb-2">{data.name}</h1>
+        <img
+          className="w-48 h-48 mx-auto object-contain"
+          src={data.sprites.other?.["official-artwork"]?.front_default || data.sprites.front_default}
+          alt={data.name}
+        />
+      </div>
 
-          <p><strong>Height:</strong> {pokemon.height}</p>
-          <p><strong>Weight:</strong> {pokemon.weight}</p>
+      {/* Types */}
+      <div className="mb-4">
+        <h2 className="text-2xl font-semibold mb-2">Types</h2>
+        <div className="flex gap-2 flex-wrap justify-center">
+          {data.types.map((t) => (
+            <span
+              key={t.type.name}
+              className={cn(
+                "px-3 py-1 rounded-full text-white font-semibold text-sm capitalize",
+                typeColors[t.type.name] || "bg-gray-500"
+              )}
+            >
+              {t.type.name}
+            </span>
+          ))}
+        </div>
+      </div>
 
-          <div className="text-center">
-            <strong>Types:</strong>
-            <div className="mt-2">
-              {pokemon.types.map((type, index) => (
-                <span
-                  key={index}
-                  className="ml-2 px-2 py-1 bg-blue-200 rounded text-sm"
-                >
-                  {type.type.name}
-                </span>
-              ))}
+      {/* Stats */}
+      <div className="mb-4">
+        <h2 className="text-2xl font-semibold mb-2">Stats</h2>
+        <div className="space-y-2">
+          {data.stats.map((s) => (
+            <div key={s.stat.name} className="flex items-center gap-2">
+              <span className="capitalize w-24">{s.stat.name}</span>
+              <div className="bg-gray-200 w-full h-4 rounded-full overflow-hidden">
+                <div
+                  className="h-4 rounded-full bg-green-500"
+                  style={{ width: `${s.base_stat > 100 ? 100 : s.base_stat}%` }}
+                />
+              </div>
+              <span className="ml-2 w-8 text-right">{s.base_stat}</span>
             </div>
-          </div>
+          ))}
+        </div>
+      </div>
 
-          <div className="text-center">
-            <strong>Abilities:</strong>
-            <div className="mt-2">
-              {pokemon.abilities.map((ability, index) => (
-                <span
-                  key={index}
-                  className="ml-2 px-2 py-1 bg-green-200 rounded text-sm"
-                >
-                  {ability.ability.name}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <Button onClick={() => navigate("/")}>
-            Back to Home
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Abilities */}
+      <div className="mb-4">
+        <h2 className="text-2xl font-semibold mb-2">Abilities</h2>
+        <div className="flex gap-2 flex-wrap justify-center">
+          {data.abilities.map((a) => (
+            <span
+              key={a.ability.name}
+              className="capitalize bg-gray-200 px-3 py-1 rounded-full font-medium text-gray-700 text-sm"
+            >
+              {a.ability.name}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
